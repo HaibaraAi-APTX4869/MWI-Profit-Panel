@@ -9,6 +9,7 @@ export async function waitForRightPannel() {
         return;
     }
 
+    // 原始右侧面板处理逻辑
     const targetNodes = document.querySelectorAll("div.CharacterManagement_tabsComponentContainer__3oI5G");
     targetNodes.forEach(container => {
         if (container.dataset.processed) return;
@@ -40,18 +41,46 @@ export async function waitForRightPannel() {
         setupTabSwitching(newTabButton, newPanel, tabPanelsContainer, container);
         createTooltip();
         setupClickActions();
-
-        // Testing only
-        setInterval(() => refreshProfitPanel(), 1000);
     });
 
-    // Check if income panel is missing
-    const incomePanelMissing = document.querySelectorAll(".TabPanel_tabPanel__tXMJF.TabPanel_hidden__26UM3.income-panel").length === 0;
-    if (incomePanelMissing) {
+    // 新增左侧面板处理逻辑
+    const leftPanel = document.querySelector("div.GamePage_middlePanel__ubts7");
+    if (leftPanel && !leftPanel.dataset.profitProcessed) {
+        const profitContainer = document.createElement('div');
+        profitContainer.className = 'profit-container';
+        profitContainer.style.margin = '20px 0';
+        profitContainer.style.padding = '15px';
+        profitContainer.style.backgroundColor = '#1e1e2d';
+        profitContainer.style.borderRadius = '8px';
+        profitContainer.innerHTML = `
+            <div class="profit-pannel">
+                <h3 style="margin-top: 0; color: #b5b5b5;">生产收益总览</h3>
+                <span style="color: #4caf50; font-size: 0.8em;">数据更新于: ${formatDuration(Date.now() - globals.freshnessMarketJson.time * 1000)}</span>
+                <div class="profit-items" style="margin-top: 10px;">
+                ${GenerateDom(globals.freshnessMarketJson)}
+                </div>
+            </div>
+        `;
+        leftPanel.appendChild(profitContainer);
+        leftPanel.dataset.profitProcessed = "true";
+        createTooltip();
+    }
+
+    // 检查是否所有面板都已处理
+    const rightPanelMissing = document.querySelectorAll(".income-panel").length === 0;
+    const leftPanelMissing = document.querySelectorAll(".profit-container").length === 0;
+    if (rightPanelMissing || leftPanelMissing) {
         setTimeout(waitForRightPannel, 1000);
+    }
+
+    // Testing only
+    if (!this._intervalSet) {
+        setInterval(() => refreshProfitPanel(), 1000);
+        this._intervalSet = true;
     }
 }
 
+// 保持原始函数不变
 function setupTabSwitching(newTabButton, newPanel, tabPanelsContainer, container) {
     newTabButton.addEventListener('click', () => {
         container.querySelectorAll('.MuiTab-root').forEach(btn => btn.classList.remove('Mui-selected'));
@@ -77,6 +106,7 @@ function setupTabSwitching(newTabButton, newPanel, tabPanelsContainer, container
     });
 }
 
+// 保持原始函数不变
 function setupClickActions() {
     document.addEventListener('click', (e) => {
         const itemContainer = e.target.closest('.Item_item__2De2O');
@@ -96,10 +126,12 @@ function setupClickActions() {
     });
 }
 
+// 修改刷新函数以支持左右面板
 let profitRefreshTime = new Date();
 export function refreshProfitPanel(force = false) {
     if (!globals.freshnessMarketJson?.market) return;
 
+    // 刷新右侧面板
     const inventoryPanels = document.querySelectorAll('.Inventory_inventory__17CH2.profit-pannel');
     inventoryPanels.forEach(panel => {
         const timeSpan = panel.querySelector('span');
@@ -111,9 +143,20 @@ export function refreshProfitPanel(force = false) {
             const itemsContainer = panel.querySelector('.Inventory_items__6SXv0');
             if (itemsContainer) {
                 itemsContainer.innerHTML = GenerateDom(globals.freshnessMarketJson);
-                profitRefreshTime = new Date();
-                globals.hasMarketItemUpdate = false;
             }
         }
     });
+
+    // 刷新左侧面板
+    const leftPanels = document.querySelectorAll('.profit-container .profit-items');
+    leftPanels.forEach(panel => {
+        if (force || globals.hasMarketItemUpdate) {
+            panel.innerHTML = GenerateDom(globals.freshnessMarketJson);
+        }
+    });
+
+    if (force || globals.hasMarketItemUpdate) {
+        profitRefreshTime = new Date();
+        globals.hasMarketItemUpdate = false;
+    }
 }
